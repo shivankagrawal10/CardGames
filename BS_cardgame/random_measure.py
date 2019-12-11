@@ -23,14 +23,14 @@ class randomm:
         #print("received List->", inDeck.pile)
         time.sleep(1)
        #self.deck.pile=list
-    def chronology(self):
+    def chronology(self): # measures how close to chronology the deck is
         self.chroncounter=0
         for x in range(51):
             if self.deck.pile[x].Number==self.deck.pile[x+1].Number-1:
                 #print (self.deck.pile[x].Number," ",self.deck.pile[x+1].Number-1)
                 self.chroncounter+=1    
         self.chronper = ((48 - self.chroncounter)/(48.0)) *100
-    def same(self):
+    def same(self): #measures how closely cards of same number are together
         self.samecounter=0
         for x in range(51):
             if self.deck.pile[x].Number==self.deck.pile[x+1].Number:
