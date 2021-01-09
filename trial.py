@@ -1,2 +1,3 @@
 print('hello world')
-print('I am trying to merge two programs')
+print('merged')
+print('This should be merged now')
