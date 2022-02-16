@@ -22,7 +22,7 @@ class BSgame():
 
  def distribute (self,names):
    cardsdealt=0
-   piles=[[] for _ in range (self.__numplayers)]
+   piles=[[] for x in range (self.__numplayers)]
    while cardsdealt <52:
      for x in range (self.__numplayers):
        piles[x].append(self.__gamedeck.pile[cardsdealt])
@@ -45,10 +45,10 @@ class BSgame():
     
     
     
-d=Cards.deck()
-a=player.player("ronald",d.pile)
-a.getcardsleft()
+#d=Cards.deck()
+#a=player.player("ronald",d.pile)
+#a.getcardsleft()
 names=["john","ron","bo"]
 first = BSgame(names)
 store= first.playerarray[0].playCard('5',1)
-first.playerarray[0].getcardsleft
+print(first.playerarray[0].getcardsleft())
