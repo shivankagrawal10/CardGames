@@ -12,9 +12,9 @@ g.add_player("YanDog")
 for i in g.players:
     g.buy_in(i)
 
-g.show_players()
-g.start_round()
-g.show_players()
+#g.show_players()
+g.start_game()
+#g.show_players()
 
 '''d = deck.deck()
 #print(d)

@@ -49,7 +49,6 @@ class deck:
                     self.pile.insert(putin,temp[putin])
                     
         def riffleshuffle (self,times):
-           
             for x in range(times):  
                 cardspulled=random.randint(20,31)
                 where=random.randint(0,1)*(52-cardspulled)

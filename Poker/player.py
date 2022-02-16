@@ -1,5 +1,6 @@
 import deck
 import sys
+import winningHand
 class player:
     def __init__(self,name):
         self.name = name
@@ -56,89 +57,120 @@ class poker:
     def buy_in(self,player:player):
         player.set_money(self.buy_in_amt)
 
-    def start_round(self):
+    def start_game(self):
         if(self.num_players < 2):
             p("Not enough players", file=sys.stderr)
         
-        self.players[self.sb].curr_bet += self.big_blind//2
-        self.pot += self.players[self.sb].bet(self.big_blind//2)
-        p(f"{self.players[self.sb].name} paid ${self.big_blind//2} small blind", file=sys.stderr)
-        self.players[self.bb].curr_bet += self.big_blind
-        self.pot += self.players[self.bb].bet(self.big_blind)
-        p(f"{self.players[self.bb].name} paid ${self.big_blind} big blind\n", file=sys.stderr)
+        while(self.num_players > 1):
 
-        self.deck.riffleshuffle(8)
-        self.distribute_cards()
+            p(f"Starting new round of poker\n", file=sys.stderr)
+            self.show_players()
 
-        for i in range(3):
-            self.hole_cards.append(self.deck.pile.pop())
+            self.players[self.sb].curr_bet += self.big_blind//2
+            self.pot += self.players[self.sb].bet(self.big_blind//2)
+            p(f"{self.players[self.sb].name} paid ${self.big_blind//2} small blind", file=sys.stderr)
+            self.players[self.bb].curr_bet += self.big_blind
+            self.pot += self.players[self.bb].bet(self.big_blind)
+            p(f"{self.players[self.bb].name} paid ${self.big_blind} big blind\n", file=sys.stderr)
 
-        self.discard_pile.append(self.deck.pile.pop())      #Burn Pre Turn
-        self.hole_cards.append(self.deck.pile.pop())        #Add Turn Card
-        self.discard_pile.append(self.deck.pile.pop())      #Burn Pre River
-        self.hole_cards.append(self.deck.pile.pop())        #Add River Card
+            self.deck.riffleshuffle(8)
+            self.distribute_cards()
 
-        round_order = []
-        round_ord_len = self.num_players
-        round_index = self.sb
-        for i in self.players:
-            round_order.append(self.players[round_index])
-            round_index = (round_index+1) % self.num_players
-        
-        for i in range(4):
-            betting_over = 0
-            curr_player = 0
-            if(i == 0):                                     #i=0 is the pre-flop round
-                round_index = 2                             #first player is next to big blind
-                self.round_bet = self.big_blind
-            else:                                           #i>0 if post flop rounds
-                round_index = 0                             #first player is small blind
-                self.round_bet = 0
-                for pl in round_order:
-                    pl.curr_bet = 0
+            for i in range(3):
+                self.hole_cards.append(self.deck.pile.pop())
 
-            curr_player = self.player_name[round_order[round_index].name]
-            last_player = self.players[(curr_player-1)%round_ord_len].name
+            self.discard_pile.append(self.deck.pile.pop())      #Burn Pre Turn
+            self.hole_cards.append(self.deck.pile.pop())        #Add Turn Card
+            self.discard_pile.append(self.deck.pile.pop())      #Burn Pre River
+            self.hole_cards.append(self.deck.pile.pop())        #Add River Card
+
+            round_order = []
+            round_ord_len = self.num_players
+            round_index = self.sb
+            winner = [-1]
+            for i in self.players:
+                round_order.append(self.players[round_index])
+                round_index = (round_index+1) % self.num_players
             
-            self.show_hole_cards(i)                         #showing players which round it is
-            
-            while(betting_over == 0):
-                if(self.players[curr_player].name == last_player):
-                    betting_over = 1
-                p(f"Turn: {self.players[curr_player].name}",file=sys.stderr)
-                p(self.players[curr_player].__str__())
-                p(f"Enter #: 0 - Fold, 1 - Call, 2 - Raise",file=sys.stderr)
-                inp = int(input())
-                while(inp != 0 and inp != 1 and inp != 2):
-                    p(f"Try Again: Enter #: 0 - Fold, 1 - Call, 2 - Raise",file=sys.stderr)
-                    inp = int(input())
-                p("",file=sys.stderr)
+            for i in range(4):
+                if(round_ord_len == 1):
+                    winner = [0]
+                    break
+
+                betting_over = 0                                #Boolean whether betting is still live
+                curr_player = 0
+                if(i == 0):                                     #i=0 is the pre-flop round
+                    round_index = 2                             #first player is next to big blind
+                    self.round_bet = self.big_blind
+                else:                                           #i>0 if post flop rounds
+                    round_index = 0                             #first player is small blind
+                    self.round_bet = 0
+                    for pl in round_order:
+                        pl.curr_bet = 0
+
+                curr_player = self.player_name[round_order[round_index].name]
+                last_player = round_order[(round_index-1)%round_ord_len].name
                 
-                if(inp == 0):
-                    fold = self.players[curr_player].fold()
-                    while fold:
-                        self.discard_pile.append(fold.pop())
-                    self.players[curr_player].curr_bet = 0
+                self.show_players()
+                self.show_hole_cards(i)                         #showing players which round it is
+                
+                while(betting_over == 0):
+                    if(round_ord_len == 1):
+                        winner = [0]
+                        break
                     if(self.players[curr_player].name == last_player):
                         betting_over = 1
-                    round_order.pop(round_index)
-                    round_ord_len -= 1
-                    round_index = round_index % round_ord_len
-                    continue
+                    p(f"Turn: {self.players[curr_player].name}",file=sys.stderr)
                     
-                elif(inp == 1):
-                    diff = self.round_bet - self.players[curr_player].curr_bet
-                    self.players[curr_player].money -= diff
-                    self.pot += diff
-                    self.players[curr_player].curr_bet = self.round_bet
-                    round_index = (round_index+1) % round_ord_len
-                else:
-                    pass
+                    p(self.players[curr_player].__str__())
+                    p(f"Enter #: 0 - Fold, 1 - Call, 2 - Raise",file=sys.stderr)
+                    inp = int(input())
+                    while(inp != 0 and inp != 1 and inp != 2):
+                        p(f"Try Again: Enter #: 0 - Fold, 1 - Call, 2 - Raise",file=sys.stderr)
+                        inp = int(input())
+                    p("",file=sys.stderr)
+                    
+                    if(inp == 0):
+                        fold = self.players[curr_player].fold()
+                        while fold:
+                            self.discard_pile.append(fold.pop())
+                        self.players[curr_player].curr_bet = 0
+                        if(self.players[curr_player].name == last_player):
+                            betting_over = 1
+                        round_order.pop(round_index)
+                        round_ord_len -= 1
+                        round_index = round_index % round_ord_len
+                        
+                    elif(inp == 1):
+                        diff = self.round_bet - self.players[curr_player].curr_bet
+                        self.players[curr_player].money -= diff
+                        self.pot += diff
+                        self.players[curr_player].curr_bet = self.round_bet
+                        round_index = (round_index+1) % round_ord_len
+                    else:
+                        raise_val = int(input("Enter amount you want to raise the current round betting size: "))
+                        diff = (self.round_bet + raise_val) - self.players[curr_player].curr_bet
+                        self.players[curr_player].money -= diff
+                        self.pot += diff
+                        self.round_bet += raise_val
+                        self.players[curr_player].curr_bet = self.round_bet
+                        last_player = round_order[(round_index-1)%round_ord_len].name
+                        round_index = (round_index+1) % round_ord_len
+
+                    curr_player = self.player_name[round_order[round_index].name]
+                    
+            if(winner == -1):
+                winner = self.check_winner()
                 
-                curr_player = self.player_name[round_order[round_index].name]
-                
-        
-        self.set_next_round()
+            '''
+            @TODO distribute winnings to winners, have more nuanced tie handling
+            '''
+            p(f"Winner is {round_order[winner].name}, Winning Amount is ${self.pot}", file=sys.stderr)
+            self.players[self.player_name[round_order[winner].name]].money += self.pot
+            self.show_players()
+            self.set_next_round()
+
+        p("Not enough players", file=sys.stderr)
 
     def set_next_round(self):
         while self.discard_pile:                            #Putting discard cards back in deck
@@ -159,11 +191,23 @@ class poker:
         self.bb = (self.sb + 1) % self.num_players
 
         self.round_bet = 0
+        self.pot = 0
 
     def distribute_cards(self):
         for i in self.players:
             i.cards.append(self.deck.pile.pop())
             i.cards.append(self.deck.pile.pop())
+
+    def check_winner(self, round_players):
+        winner = []
+        max_hand = 0
+        for i in round_players:
+            hand_val = winningHand.checker(self.community+i.pile)
+            if(hand_val == max_hand):
+                winner.append(self.player_name[i.name])
+            elif(hand_val > max_hand):
+                max_hand = hand_val
+                winner = [self.player_name[i.name]]
 
     def show_players(self):
         p(f"Pot Total".ljust(11)+f"- ${self.pot}",file=sys.stderr)
