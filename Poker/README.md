@@ -18,3 +18,13 @@ Measures of success:
     2. Final Profit (Poker)
     3. Expected Value Play
     4. Reinforcement Learning
+
+2 agent ideas
+    - best current situation decision based on no history
+    - best decision taking into account history of players
+===============
+inputs to agent
+    - current pot size
+    - curent bet amount
+    - number people left in the round
+        - someway to play based on history of player's behavior
