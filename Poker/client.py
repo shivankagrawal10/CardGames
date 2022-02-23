@@ -23,9 +23,9 @@ host = socket.gethostname()
 port = 5556                   # The same port as used by the server
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((host, port))
-while True:
-    print("Enter Player Name: ",file=sys.stderr)
-    name = input()
+#print("Enter Player Name: ",file=sys.stderr)
+while(True):
+    name = input("Enter Player Name: ")
     s.send(str.encode(name))
     #data = s.recv(2048)
     #s.close()
