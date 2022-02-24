@@ -25,8 +25,18 @@ class Network:
         :return: str
         """
         try:
-            self.client.send(str.encode(data))
-            reply = self.client.recv(2048).decode()
-            return reply
+            return self.client.send(str.encode(data))
+            #reply = self.client.recv(2048).decode()
+            #return reply
         except socket.error as e:
             return str(e)
+    
+    def receive(self):
+        """
+        :param none
+        :return: str
+        """
+        ex = self.client.recv(2048).decode('UTF-8')
+        #while ex!= b'':
+        #    ex += self.client.recv(2048).decode('UTF-8')
+        return ex
