@@ -1,5 +1,5 @@
 import socket
-
+import sys
 
 class Network:
 
@@ -8,15 +8,17 @@ class Network:
         self.host = socket.gethostname()    # For this to work on your machine this must be equal to the ipv4 address of the machine running the server
                                             # You can find this address by typing ipconfig in CMD and copying the ipv4 address. Again this must be the servers
                                             # ipv4 address. This feild will be the same for all your clients.
+        #self.client.setblocking(1)
         self.port = 5556
         self.addr = (self.host, self.port)
-        self.id = self.connect()
+        self.id = int(self.connect())
 
     def connect(self):
         self.client.connect(self.addr)
         return self.client.recv(2048).decode()
 
     def close(self):
+        print("Connection Closed",file=sys.stderr)
         self.client.close()
 
     def send(self, data):

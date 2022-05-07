@@ -1,7 +1,7 @@
 import deck
 import winningHand
 import matplotlib.pyplot as plt
-import poker
+import No_Thread.poker as poker
 
 g = poker.poker(10,100)
 '''g.add_player("Shivaank")

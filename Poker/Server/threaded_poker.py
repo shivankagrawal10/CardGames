@@ -3,12 +3,14 @@ import deck
 import winningHand
 import player as pl
 
+gthread_dict = dict()
 class poker:
     def __init__(self, big_blind, buy_in):
         self.pot = 0
         self.num_players = 0
         self.players = []
         self.player_name = dict()                           #count of players with same name
+        self.player_address = dict()
         self.deck = deck.deck()
         self.big_blind = big_blind
         self.buy_in_amt = buy_in
@@ -18,15 +20,25 @@ class poker:
         self.hole_cards = []
         self.round_bet = 0
 
-    def add_player (self,name):
-        if name in self.players:
+    def add_player (self,name,addr):
+        global gthread_dict
+        if name in self.player_name:
             p(f"{name} already exists, please enter another name", file =sys.stderr)
+            return -1
         else:
+            #print(f"reached",file=sys.stderr)
             self.players.append(pl.player(name))
             self.player_name[name] = self.num_players
+            
+            self.player_address[name] = addr
+            
             self.num_players += 1
-        
-    
+            p(f"{name} address is {self.player_address[name]}", file =sys.stderr)
+            self.buy_in(self.players[self.num_players-1])
+            p(f"{name} Buying in at ${self.buy_in_amt}", file =sys.stderr)
+            gthread_dict = self.player_address
+            return 0
+
     def buy_in(self,player:pl.player):
         player.set_money(self.buy_in_amt)
 
@@ -84,7 +96,7 @@ class poker:
                 curr_player = self.player_name[round_order[round_index].name]
                 last_player = round_order[(round_index-1)%round_ord_len].name
                 
-                self.show_players()
+                #self.show_players()
                 self.show_hole_cards(i)                         #showing players which round it is
                 
                 while(betting_over == 0):
@@ -93,16 +105,20 @@ class poker:
                         break
                     if(self.players[curr_player].name == last_player):
                         betting_over = 1
+                    
                     p(f"Turn: {self.players[curr_player].name}",file=sys.stderr)
                     
                     p(self.players[curr_player].__str__())
-                    p(f"Enter #: 0 - Fold, 1 - Call, 2 - Raise",file=sys.stderr)
+                    thread_send(self.players[curr_player].name, "Enter #: 0 - Fold, 1 - Call, 2 - Raise")
+                    inp = int(thread_receive(self.players[curr_player].name))
+                    '''
+                    p(f"Enter #: 0 - Fold, 1 - Call, 2 - Raise")
                     inp = int(input())
                     while(inp != 0 and inp != 1 and inp != 2):
                         p(f"Try Again: Enter #: 0 - Fold, 1 - Call, 2 - Raise",file=sys.stderr)
                         inp = int(input())
                     p("",file=sys.stderr)
-                    
+                    '''
                     if(inp == 0):
                         fold = self.players[curr_player].fold()
                         while fold:
@@ -153,6 +169,7 @@ class poker:
         p("Not enough players", file=sys.stderr)
 
     def set_next_round(self):
+        global gthread_dict
         while self.discard_pile:                            #Putting discard cards back in deck
             self.deck.pile.append(self.discard_pile.pop())
 
@@ -176,11 +193,17 @@ class poker:
         subtract_players = 0
         for i in range(self.num_players-1,-1,-1):
             if(self.players[i].money <= 0):
-                self.player_name.pop(self.players[i].name)
+                #self.player_name.pop(self.players[i].name)
+                self.player_address.pop(self.players[i].name)
                 self.players.pop(i)
                 subtract_players += 1
         
         self.num_players -= subtract_players
+
+        self.player_name = dict()
+        for i in range(self.num_players):
+            self.player_name[self.players[i].name] = i 
+        gthread_dict = self.player_address
 
     def distribute_cards(self):
         for i in self.players:
@@ -197,6 +220,11 @@ class poker:
             elif(hand_val > max_hand):
                 max_hand = hand_val
                 winner = [self.player_name[i.name]]
+
+    def isPlaying(self, name):
+        if name in self.player_name:
+            return True
+        return False
 
     def show_players(self):
         p(f"Pot Total".ljust(11)+f"- ${self.pot}",file=sys.stderr)
@@ -229,3 +257,13 @@ class poker:
 
 def p(string,end='\n',file=sys.stderr):
     print(string,end=end,file=sys.stderr)
+
+def thread_receive(name):
+    return gthread_dict[name][0].recv(1024).decode('UTF-8')
+
+def thread_send(name, data):
+    gthread_dict[name][0].send(str.encode(str(data)))
+
+def thread_sendtoall(string):
+    for i in gthread_dict:
+        i[0].send(str.encode(str(string)))  
