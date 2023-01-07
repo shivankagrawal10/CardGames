@@ -1,3 +1,10 @@
+"""
+Central game logic
+
+@author: shivank agrawal
+Stores the poker functionality
+"""
+
 import sys
 import deck
 import winningHand
@@ -5,6 +12,7 @@ import player as pl
 
 gthread_dict = dict()
 class poker:
+    #Initializing data structures required for organizing game
     def __init__(self, big_blind, buy_in):
         self.pot = 0
         self.num_players = 0
@@ -20,7 +28,8 @@ class poker:
         self.hole_cards = []
         self.round_bet = 0
 
-    def add_player (self,name,addr):
+    #Adds player to game if name does not already exist
+    def add_player (self,name,conn,addr):
         global gthread_dict
         if name in self.player_name:
             p(f"{name} already exists, please enter another name", file =sys.stderr)
@@ -30,8 +39,8 @@ class poker:
             self.players.append(pl.player(name))
             self.player_name[name] = self.num_players
             
-            self.player_address[name] = addr
-            
+            self.player_address[name] = (conn,addr)
+            #print(self.player_address)
             self.num_players += 1
             p(f"{name} address is {self.player_address[name]}", file =sys.stderr)
             self.buy_in(self.players[self.num_players-1])
@@ -39,8 +48,14 @@ class poker:
             gthread_dict = self.player_address
             return 0
 
+    #Assigns new player fix amount of money at entry
     def buy_in(self,player:pl.player):
         player.set_money(self.buy_in_amt)
+
+    def set_bet(self,player_index, amount):
+        self.players[player_index].bet(amount)
+        self.pot += self.players[player_index].curr_bet
+        
 
     def start_game(self):
         if(self.num_players < 2):
@@ -51,12 +66,12 @@ class poker:
             p(f"Starting new round of poker\n", file=sys.stderr)
             self.show_players()
 
-            self.players[self.sb].curr_bet += self.big_blind//2
-            self.pot += self.players[self.sb].bet(self.big_blind//2)
-            p(f"{self.players[self.sb].name} paid ${self.big_blind//2} small blind", file=sys.stderr)
-            self.players[self.bb].curr_bet += self.big_blind
-            self.pot += self.players[self.bb].bet(self.big_blind)
-            p(f"{self.players[self.bb].name} paid ${self.big_blind} big blind\n", file=sys.stderr)
+            self.set_bet(self.sb,self.big_blind//2)
+            thread_sendtoall(f"{self.players[self.sb].name} paid ${self.big_blind//2} small blind\n")
+            #p(f"{self.players[self.sb].name} paid ${self.big_blind//2} small blind", file=sys.stderr)
+            self.set_bet(self.bb,self.big_blind)
+            thread_sendtoall(f"{self.players[self.bb].name} paid ${self.big_blind} big blind\n")
+            #p(f"{self.players[self.bb].name} paid ${self.big_blind} big blind\n", file=sys.stderr)
 
             self.deck.riffleshuffle(8)
             self.distribute_cards()
@@ -96,29 +111,27 @@ class poker:
                 curr_player = self.player_name[round_order[round_index].name]
                 last_player = round_order[(round_index-1)%round_ord_len].name
                 
-                #self.show_players()
+                self.show_players()
                 self.show_hole_cards(i)                         #showing players which round it is
                 
                 while(betting_over == 0):
+                    #self.show_players()
                     if(round_ord_len == 1):
                         winner = [0]
                         break
                     if(self.players[curr_player].name == last_player):
                         betting_over = 1
                     
-                    p(f"Turn: {self.players[curr_player].name}",file=sys.stderr)
+                    thread_sendtoall(f"Turn: {self.players[curr_player].name}\n")
+                    #p(f"Turn: {self.players[curr_player].name}",file=sys.stderr)
                     
-                    p(self.players[curr_player].__str__())
-                    thread_send(self.players[curr_player].name, "Enter #: 0 - Fold, 1 - Call, 2 - Raise")
-                    inp = int(thread_receive(self.players[curr_player].name))
-                    '''
-                    p(f"Enter #: 0 - Fold, 1 - Call, 2 - Raise")
-                    inp = int(input())
-                    while(inp != 0 and inp != 1 and inp != 2):
-                        p(f"Try Again: Enter #: 0 - Fold, 1 - Call, 2 - Raise",file=sys.stderr)
-                        inp = int(input())
-                    p("",file=sys.stderr)
-                    '''
+                    thread_send(self.players[curr_player].name,self.players[curr_player].__str__()+"\n")
+                    #p(self.players[curr_player].__str__())
+                    thread_send(self.players[curr_player].name, "Enter #: 0 - Fold, 1 - Call, 2 - Raise\n")
+                    raw_inp = thread_receive(self.players[curr_player].name)
+                    print(raw_inp)
+                    raw_inp = raw_inp.split("|")
+                    inp = int(raw_inp[0])
                     if(inp == 0):
                         fold = self.players[curr_player].fold()
                         while fold:
@@ -129,7 +142,6 @@ class poker:
                         round_order.pop(round_index)
                         round_ord_len -= 1
                         round_index = round_index % round_ord_len
-                        
                     elif(inp == 1):
                         diff = self.round_bet - self.players[curr_player].curr_bet
                         self.players[curr_player].money -= diff
@@ -137,7 +149,14 @@ class poker:
                         self.players[curr_player].curr_bet = self.round_bet
                         round_index = (round_index+1) % round_ord_len
                     else:
-                        raise_val = int(input("Enter amount you want to raise the current round betting size: "))
+                        #raise_val = int(input("Enter amount you want to raise the current round betting size: "))
+                        if(len(raw_inp)==1):
+                            raise_val = thread_receive(self.players[curr_player].name)
+                            raise_val = raise_val.split("|")
+                            raise_val = int(raise_val[1])
+                        else:
+                            raise_val = int(raw_inp[1])
+                        print(raise_val)
                         diff = (self.round_bet + raise_val) - self.players[curr_player].curr_bet
                         self.players[curr_player].money -= diff
                         self.pot += diff
@@ -148,6 +167,7 @@ class poker:
                         betting_over = 0
 
                     curr_player = self.player_name[round_order[round_index].name]
+                    #print(round_order[round_index].name)
                     
             if(winner == -1):
                 winner = self.check_winner()
@@ -168,6 +188,7 @@ class poker:
 
         p("Not enough players", file=sys.stderr)
 
+    #Handles resetting the pot, deck, and removing players who have a balance of 0
     def set_next_round(self):
         global gthread_dict
         while self.discard_pile:                            #Putting discard cards back in deck
@@ -227,36 +248,56 @@ class poker:
         return False
 
     def show_players(self):
-        p(f"Pot Total".ljust(11)+f"- ${self.pot}",file=sys.stderr)
+        first_message = f"Pot Total".ljust(11)+f"- ${self.pot}\n"
+        thread_sendtoall(first_message)
+        #p(f"Pot Total".ljust(11)+f"- ${self.pot}",file=sys.stderr)
         for i in self.players:
-            p(i.__str__(),file=sys.stderr)
+            thread_sendtoall(i.player_value()+"\n")
+            #p(i.player_value(),file=sys.stderr)
+            #p(i.__str__(),file=sys.stderr)
         p("",file=sys.stderr)
 
     def show_hole_cards(self,round):                        # round (0 = pre-flop, 1 = flop, 2 = turn, 3 = river)
-        p("Cards in the hole ",end="",file=sys.stderr)
+        first_message = "Cards in the hole\n"
+        #p(first_message,end="",file=sys.stderr)
+        thread_sendtoall(first_message)
+
+        second_message = ""
         if(round == 0):
-            p("(Pre-Flop)",file=sys.stderr)
+            second_message = "(Pre-Flop)"
+            #p("(Pre-Flop)",file=sys.stderr)
         elif(round == 1):
-            p("(Flop)",file=sys.stderr)
+            second_message = "(Flop)"
+            #p("(Flop)",file=sys.stderr)
         elif(round == 2):
-            p("(Turn)",file=sys.stderr)
+            second_message = "(Turn)"
+            #p("(Turn)",file=sys.stderr)
         elif(round == 3):
-            p("(River)",file=sys.stderr)    
-        
+            second_message = "(River)"
+            #p("(River)",file=sys.stderr) 
+        second_message += "\n"
+        thread_sendtoall(second_message)
+
+        card_string = ""
         if(round == 0):
             for i in range(5):
-                p(f"X".ljust(15),end="",file=sys.stderr)
+                card_string += "X".ljust(15)
+                #p(f"X".ljust(15),end="",file=sys.stderr)
         else:
             for i in range(5):
                 if(i < 2+round):
-                    p(f"{self.hole_cards[i]}".ljust(15),end="",file=sys.stderr)
+                    card_string += f"{self.hole_cards[i]}".ljust(15)
+                    #p(f"{self.hole_cards[i]}".ljust(15),end="",file=sys.stderr)
                 else:
-                    p(f"X".ljust(15),end="",file=sys.stderr)
+                    card_string += "X".ljust(15)
+                    #p(f"X".ljust(15),end="",file=sys.stderr)
         
-        p("\n",file=sys.stderr)
+        card_string += "\n"
+        thread_sendtoall(card_string)
+        #p("\n",file=sys.stderr)
 
 def p(string,end='\n',file=sys.stderr):
-    print(string,end=end,file=sys.stderr)
+    print(string,end=end,file=file)
 
 def thread_receive(name):
     return gthread_dict[name][0].recv(1024).decode('UTF-8')
@@ -265,5 +306,6 @@ def thread_send(name, data):
     gthread_dict[name][0].send(str.encode(str(data)))
 
 def thread_sendtoall(string):
+    p(string,end="",file=sys.stderr)
     for i in gthread_dict:
-        i[0].send(str.encode(str(string)))  
+        gthread_dict[i][0].send(str.encode(str(string)))  

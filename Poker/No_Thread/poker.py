@@ -17,6 +17,7 @@ class poker:
         self.discard_pile = []
         self.hole_cards = []
         self.round_bet = 0
+        self.rounds = 0
 
     def add_player (self,name):
         if name in self.player_name:
@@ -24,6 +25,11 @@ class poker:
             return -1
         else:
             self.players.append(pl.player(name))
+            if "agent" in name:
+                if "rand" in name:
+                    self.players[-1].setAgent(1)
+                elif "calc" in name:
+                    self.players[-1].setAgent(2)
             self.player_name[name] = self.num_players
             self.num_players += 1
             return 0
@@ -40,23 +46,13 @@ class poker:
             p(f"Starting new round of poker\n", file=sys.stderr)
             self.show_players()
 
-            self.players[self.sb].curr_bet += self.big_blind//2
-            self.pot += self.players[self.sb].bet(self.big_blind//2)
-            p(f"{self.players[self.sb].name} paid ${self.big_blind//2} small blind", file=sys.stderr)
-            self.players[self.bb].curr_bet += self.big_blind
-            self.pot += self.players[self.bb].bet(self.big_blind)
-            p(f"{self.players[self.bb].name} paid ${self.big_blind} big blind\n", file=sys.stderr)
+            self.small_blind_pay()
+            self.big_blind_pay()
 
             self.deck.riffleshuffle(8)
             self.distribute_cards()
 
-            for i in range(3):
-                self.hole_cards.append(self.deck.pile.pop())
-
-            self.discard_pile.append(self.deck.pile.pop())      #Burn Pre Turn
-            self.hole_cards.append(self.deck.pile.pop())        #Add Turn Card
-            self.discard_pile.append(self.deck.pile.pop())      #Burn Pre River
-            self.hole_cards.append(self.deck.pile.pop())        #Add River Card
+            self.set_hole_cards()
 
             round_order = []
             round_ord_len = self.num_players
@@ -74,19 +70,19 @@ class poker:
                 betting_over = 0                                #Boolean whether betting is still live
                 curr_player = 0
                 if(i == 0):                                     #i=0 is the pre-flop round
-                    round_index = 2                             #first player is next to big blind
+                    round_index = 2 % self.num_players          #first player is next to big blind
                     self.round_bet = self.big_blind
                 else:                                           #i>0 if post flop rounds
                     round_index = 0                             #first player is small blind
                     self.round_bet = 0
                     for pl in round_order:
-                        pl.curr_bet = 0
+                        pl.setCurrentBet(0)
 
                 curr_player = self.player_name[round_order[round_index].name]
                 last_player = round_order[(round_index-1)%round_ord_len].name
                 
                 self.show_players()
-                self.show_hole_cards(i)                         #showing players which round it is
+                self.show_hole_cards(i)                         #showing which round game is at
                 
                 while(betting_over == 0):
                     if(round_ord_len == 1):
@@ -95,39 +91,40 @@ class poker:
                     if(self.players[curr_player].name == last_player):
                         betting_over = 1
                     p(f"Turn: {self.players[curr_player].name}",file=sys.stderr)
-                    
+                    if(self.players[curr_player].is_agent != 0):
+                        self.players[curr_player].updateAgentInfo(self.pot, self.hole_cards,self.round_bet)
                     p(self.players[curr_player].__str__())
                     p(f"Enter #: 0 - Fold, 1 - Call, 2 - Raise",file=sys.stderr)
-                    inp = int(input())
-                    while(inp != 0 and inp != 1 and inp != 2):
-                        p(f"Try Again: Enter #: 0 - Fold, 1 - Call, 2 - Raise",file=sys.stderr)
-                        inp = int(input())
-                    p("",file=sys.stderr)
+                    
+                    inp = self.players[curr_player].getDecision()
+        
+                    p(inp,file=sys.stderr,on=True)
                     
                     if(inp == 0):
                         fold = self.players[curr_player].fold()
                         while fold:
                             self.discard_pile.append(fold.pop())
-                        self.players[curr_player].curr_bet = 0
                         if(self.players[curr_player].name == last_player):
                             betting_over = 1
                         round_order.pop(round_index)
                         round_ord_len -= 1
                         round_index = round_index % round_ord_len
                         
-                    elif(inp == 1):
-                        diff = self.round_bet - self.players[curr_player].curr_bet
-                        self.players[curr_player].money -= diff
+                    elif(inp == 1 or self.players[curr_player].getMoney()<=0):
+                        diff = self.players[curr_player].setCurrentBet(self.round_bet)
+                        print(self.pot)
                         self.pot += diff
-                        self.players[curr_player].curr_bet = self.round_bet
                         round_index = (round_index+1) % round_ord_len
                     else:
-                        raise_val = int(input("Enter amount you want to raise the current round betting size: "))
-                        diff = (self.round_bet + raise_val) - self.players[curr_player].curr_bet
-                        self.players[curr_player].money -= diff
+                        raise_val = 0
+                        while(raise_val < self.round_bet):
+                            p(f"Enter new amount",file=sys.stderr)
+                            raise_val = self.players[curr_player].getRaise()
+                            p(f"raise val {raise_val}")
+                        p(f"Raise value is {raise_val}",file=sys.stderr)
+                        diff = self.players[curr_player].setCurrentBet(raise_val)
                         self.pot += diff
-                        self.round_bet += raise_val
-                        self.players[curr_player].curr_bet = self.round_bet
+                        self.round_bet = raise_val
                         last_player = round_order[(round_index-1)%round_ord_len].name
                         round_index = (round_index+1) % round_ord_len
                         betting_over = 0
@@ -150,8 +147,31 @@ class poker:
                 self.players[self.player_name[round_order[winner[i]].name]].money += win_amt
             self.show_players()
             self.set_next_round()
+            self.rounds +=1
+            p("====================", file=sys.stderr)
+            p(f"Round {self.rounds}", file=sys.stderr)
+            p("====================", file=sys.stderr)
 
-        p("Not enough players", file=sys.stderr)
+        p(f"Game Over! Winner is {self.players[-1]}", file=sys.stderr)
+
+    def small_blind_pay(self):
+        self.pot += self.players[self.sb].setCurrentBet(self.big_blind//2)
+        p(f"Small blind {self.pot}")
+        p(f"{self.players[self.sb].name} paid ${self.big_blind//2} small blind", file=sys.stderr)
+
+    def big_blind_pay(self):
+        self.pot += self.players[self.bb].setCurrentBet(self.big_blind)
+        p(f"Big blind {self.pot}")
+        p(f"{self.players[self.bb].name} paid ${self.big_blind} big blind\n", file=sys.stderr)
+
+    def set_hole_cards(self):
+        for i in range(3):
+            self.hole_cards.append(self.deck.pile.pop())
+
+        self.discard_pile.append(self.deck.pile.pop())      #Burn Pre Turn
+        self.hole_cards.append(self.deck.pile.pop())        #Add Turn Card
+        self.discard_pile.append(self.deck.pile.pop())      #Burn Pre River
+        self.hole_cards.append(self.deck.pile.pop())        #Add River Card
 
     def set_next_round(self):
         while self.discard_pile:                            #Putting discard cards back in deck
@@ -168,9 +188,6 @@ class poker:
                 self.deck.pile.append(i.cards.pop())
             i.cards = []
 
-        self.sb = (self.sb + 1) % self.num_players          #Rotating Small and Big Blind
-        self.bb = (self.sb + 1) % self.num_players
-
         self.round_bet = 0
         self.pot = 0
 
@@ -185,7 +202,11 @@ class poker:
 
         self.player_name = dict()
         for i in range(self.num_players):
-            self.player_name[self.players[i].name] = i 
+            self.player_name[self.players[i].name] = i
+            self.players[i].setCurrentBet(0) 
+
+        self.sb = (self.sb + 1) % self.num_players          #Rotating Small and Big Blind
+        self.bb = (self.sb + 1) % self.num_players
 
     def distribute_cards(self):
         for i in self.players:
@@ -207,6 +228,7 @@ class poker:
         p(f"Pot Total".ljust(11)+f"- ${self.pot}",file=sys.stderr)
         for i in self.players:
             p(i.__str__(),file=sys.stderr)
+            p(i.getCurrentBet())
         p("",file=sys.stderr)
 
     def show_hole_cards(self,round):                        # round (0 = pre-flop, 1 = flop, 2 = turn, 3 = river)
@@ -232,5 +254,6 @@ class poker:
         
         p("\n",file=sys.stderr)
 
-def p(string,end='\n',file=sys.stderr):
-    print(string,end=end,file=sys.stderr)
+def p(string,end='\n',file=sys.stderr,on=True):
+    if(on == True):
+        print(string,end=end,file=sys.stderr)

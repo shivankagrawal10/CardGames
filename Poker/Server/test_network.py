@@ -1,3 +1,10 @@
+"""
+Server Side
+
+@author: shivank agrawal
+Runner for server and game logic
+"""
+
 from re import S
 
 from sympy import false
@@ -17,7 +24,7 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server = socket.gethostname() #"172.31.17.229"
 port = 5556
 
-server_ip = "172.26.23.78"#socket.gethostbyname(server)
+server_ip = socket.gethostbyname(server)
 
 try:
     s.bind((server,port))
@@ -26,7 +33,7 @@ except socket.error as e:
 
 s.listen(2)
 #s.setblocking(False)
-print("waiting for connection")
+print("Waiting for connection")
 
 g = threaded_poker.poker(10,100)
 #currentId = "0"
@@ -43,16 +50,17 @@ def signal_handler(signal, frame):
 def threaded_client(conn,addr):
     print("Connected to: ", conn,file=sys.stderr)
     try:
+        #getting player name
         data = conn.recv(2048)
         #reply = data.decode('utf-8')
         if not data:
             pass
         name = data.decode()
         print(f"Adding {name} to the game",file=sys.stderr)
-        succesAdd = g.add_player(name,addr)
+        succesAdd = g.add_player(name,conn,addr)
         if(succesAdd==0):
             conn.sendall(b"You have been added to the game\n")
-            conn.sendall(b"Wait for game to start . . .")
+            conn.sendall(b"Wait for game to start . . .\n")
         else:
             conn.sendall(b"You have not been added, try again with a different name")
         g.show_players()
@@ -61,11 +69,12 @@ def threaded_client(conn,addr):
         print("Connection Closed")
         conn.close()
     
+    x=0
     while(g.isPlaying(name)):
-        conn.sendall()
+        x += 1
 
-    #print("Connection Closed")
-    #conn.close()
+    print(f"{name} Connection Closed")
+    conn.close()
     
 
 signal.signal(signal.SIGINT, signal_handler)
@@ -82,10 +91,11 @@ def create_client():
         numPlayersLock.acquire()
         numPlayers += 1
         numPlayersLock.release()
-    while True:
+    
+    '''while True:
         conn, addr = s.accept()
         conn.send(str.encode(str(-1)))
-
+    '''
 
 start_new_thread(create_client, ())
 #startGame = False

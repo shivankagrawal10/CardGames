@@ -3,28 +3,44 @@ Represent hand's state --> check if state is == winning hand
 '''
 class checker():
     def __init__(self, hand):
-        self.hand_len = 7
+        self.hand_len = len(hand)
         self.num_rep = dict()
-        self.col_rep = dict()
+        self.suite_rep = dict()
         self.coord = []
         for i in hand:
-            if(i.number+2 not in self.num_rep):
+            if(i.number+2 not in self.num_rep):     #counting how many same card values
                 self.num_rep[i.number+2] = 1
             else:     
-                self.num_rep[i.number+2] += 1
-            if(i.suite not in self.col_rep):
-                self.col_rep[i.suite] = 1
+                self.num_rep[i.number+2] += 1       
+            if(i.suite not in self.suite_rep):      #counting how many same suites
+                self.suite_rep[i.suite] = 1
             else:     
-                self.col_rep[i.suite] += 1
+                self.suite_rep[i.suite] += 1
             self.coord.append((i.number+2,i.suite))
-        self.coord.sort(key=lambda x: x[0])
-        self.diff = [self.coord[i+1][0]-self.coord[i][0] for i in range(7-1)]
+        self.coord.sort(key=lambda x: x[0])         #Put in numeric order 2 - A
+        self.diff = [self.coord[i+1][0]-self.coord[i][0] for i in range(self.hand_len-1)]       #helpful in detecting straights
         #for i in hand:
         #    print(i.__str__())
         #print(self.num_rep)
         #print(self.col_rep)
                 
-            
+    def getNumList(self):
+        num_list = [self.num_rep[i+2] if self.num_rep[i+2] else 0 for i in range(14)]
+        return num_list
+
+    def getSuiteVector(self):
+        suiteVector = [0,0,0,0]
+        for i in self.suite_rep:
+            if i == "Hearts":
+                suiteVector[0] = self.suite_rep[i]
+            elif i == "Diamonds":
+                suiteVector[1] = self.suite_rep[i]
+            elif i == "Clubs":
+                suiteVector[2] = self.suite_rep[i]
+            elif i == "Spades":
+                suiteVector[3] = self.suite_rep[i]    
+        return suiteVector
+
     def RoyalFlush(self):
         val = self.StraightFlush()
         if(val == 0):
@@ -63,7 +79,7 @@ class checker():
         return 0
     
     def Flush(self):
-        if 5 in self.col_rep.values():
+        if 5 in self.suite_rep.values():
             return 6
         return 0
     

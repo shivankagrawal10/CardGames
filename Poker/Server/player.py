@@ -1,3 +1,10 @@
+"""
+Internal datastructure - individual player record
+
+@author: shivank agrawal
+
+"""
+
 import network as ntwk
 class player:
     def __init__(self,name):
@@ -16,12 +23,16 @@ class player:
     
     def bet(self,amount):
         self.money -= amount
+        self.curr_bet += amount
         return amount
 
     def fold(self):
         temp = self.cards
         self.cards = []
         return temp
+
+    def player_value(self):
+        return f"{self.name.ljust(10)} - ${self.money}" 
 
     def __str__(self):
         if(self.cards):

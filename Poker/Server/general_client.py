@@ -1,13 +1,16 @@
 """
-Client side - if player is a human
+Client side
 
 @author: shivank agrawal
-Prompts user to take action during game round (system in)
+Prompts user (human or agent) for game action
 """
 
 import player
 import network as ntwk
 import signal, sys
+from Agents import Random_Agent
+
+AgentArr = []
 
 client = ntwk.Network()
 
@@ -21,9 +24,20 @@ if(client.id<0):
     print("Max players already on Server")
     sys.exit(0)
 
-name = input("Enter Player Name: ")
-#curr_state = player.player(name)
-client.send(name)
+isAgent = True
+type_of_player = input("Enter Player or Agent")
+name = 0
+if(type_of_player == "Player"):
+    isAgent = False
+    name = input("Enter Player Name (do not make it a self standing #): ")
+    #curr_state = player.player(name)
+    client.send(name)
+if(type_of_player == "A"):
+    name = input("Enter Agent #")
+    client.send(name)
+    name = int(name)
+    #if(name == 0):
+    Agent = Random_Agent.Agent()
 
 print(client.receive())
 #print(client.receive())
@@ -36,21 +50,29 @@ while True:
     else:
         print(instructions,end="",file=sys.stderr)
     if(instructions == "Enter #: 0 - Fold, 1 - Call, 2 - Raise\n"):
-        inp = int(input())
+        if(isAgent == False):
+            inp = int(input())
+        else:
+            inp = int(Agent.getDecision())
         while(inp != 0 and inp != 1 and inp != 2):
             print(f"Try Again: Enter #: 0 - Fold, 1 - Call, 2 - Raise",file=sys.stderr)
             inp = int(input())
+        print(str(inp))
         client.send(str(inp))
         if(inp == 2):
             while True:
                 try:
-                    amt = int(input("Enter Amount To Bet:"))
-                    client.send(str(amt))
-                    break
+                    if(isAgent == False):
+                        amt = int(input("Enter Amount To Bet:"))
+                    else:
+                        amt = int(Agent.getRaise(20))
+                    amt_send = "|"+str(amt)
+                    client.send(amt_send)
+                    print(amt)
                 except:
                     print("Enter a valid amount",file=sys.stderr)
-                    continue    
-        
+                    continue  
+                break         
 
         
         print("",file=sys.stderr)

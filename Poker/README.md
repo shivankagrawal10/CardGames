@@ -1,3 +1,8 @@
+Pending Task:
+- Tie breaker scenario
+- Server Client
+- Agents
+
 Future Ideas
 - Server Client Model to host game
 - Thread (player) can be a computer (AI agent)
